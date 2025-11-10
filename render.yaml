@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: fastapi-db-app
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      # Ajusta DATABASE_URL si usas PostgreSQL gestionado por Render
+      # - key: DATABASE_URL
+      #   value: "postgresql://USER:PASSWORD@HOST:PORT/DBNAME"

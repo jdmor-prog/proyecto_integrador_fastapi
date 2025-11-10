@@ -1,0 +1,16 @@
+# Ignorar entorno local y cachés
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar variables y DB local
+.env
+project.db
+
+# Otros
+.git/
+*.log
+README.md
+scripts/__pycache__/

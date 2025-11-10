@@ -1,0 +1,1 @@
+# Marca el directorio app como paquete Python

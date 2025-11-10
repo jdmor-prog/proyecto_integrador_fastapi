@@ -1,0 +1,1 @@
+# Paquete para configuración y utilidades core
