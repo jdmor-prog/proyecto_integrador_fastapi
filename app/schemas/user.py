@@ -25,7 +25,6 @@ class UserUpdate(BaseModel):
     role: str | None = None
 
 
-# Resumen de ítem para embebido en usuario (evita import circular)
 class ItemSummary(BaseModel):
     id: int
     title: str
@@ -37,7 +36,6 @@ class ItemSummary(BaseModel):
 class UserReadWithItems(UserRead):
     items: list[ItemSummary] = []
 
-# Resumen de perfil para embebido en usuario
 class ProfileSummary(BaseModel):
     id: int
     bio: str | None = None
@@ -50,7 +48,6 @@ class ProfileSummary(BaseModel):
 class UserReadWithProfile(UserRead):
     profile: ProfileSummary | None = None
 
-# Usuario con ítems y perfil embebidos
 class UserReadFull(UserRead):
     items: list[ItemSummary] = []
     profile: ProfileSummary | None = None

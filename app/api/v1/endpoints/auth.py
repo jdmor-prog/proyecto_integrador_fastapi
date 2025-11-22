@@ -22,7 +22,7 @@ class LoginRequest(BaseModel):
 def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
     """Basic login that returns a JWT if credentials are valid."""
     ident = payload.identifier.strip()
-    # Decide lookup strategy: email if contains '@', else by username (name)
+
     if "@" in ident:
         user = get_user_by_email(db, ident)
     else:

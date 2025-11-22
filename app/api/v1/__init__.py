@@ -1,1 +1,0 @@
-# Paquete para versión v1 de la API
