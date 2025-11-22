@@ -1,14 +1,9 @@
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, Request, status
 
-from app.core.database import get_db
-from app.core.security import get_current_active_user
-
-def admin_required(current_user = Depends(get_current_active_user)):
-    # current_user must have attribute 'rol'
-    if not current_user or getattr(current_user, "rol", "").upper() != "ADMIN":
+def admin_required(request: Request):
+    user = request.state.user
+    if not user or user.rol != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions (admin required)."
+            detail="Acceso restringido a administradores"
         )
-    return current_user

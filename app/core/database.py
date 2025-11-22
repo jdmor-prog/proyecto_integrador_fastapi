@@ -7,6 +7,11 @@ engine = create_engine(settings.database_url, connect_args=connect_args, pool_pr
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+from app.models.almacen import Almacen
+from app.models.category import Category
+from app.models.product import Product
+from app.models.user import User
+
 
 def get_db():
     db = SessionLocal()

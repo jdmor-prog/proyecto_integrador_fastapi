@@ -1,7 +1,7 @@
-# app/models/product.py
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.base import Base
+from app.core.database import Base
+
 
 class Product(Base):
     __tablename__ = "products"
@@ -11,7 +11,9 @@ class Product(Base):
     descripcion = Column(Text, nullable=True)
     stock = Column(Integer, nullable=False, default=0)
     stock_minimo = Column(Integer, nullable=False, default=0)
-    id_categoria = Column(Integer, nullable=False)  # FK if you later add categories table
-    id_almacen = Column(Integer, nullable=False)    # FK if you later add almacenes table
+    id_categoria = Column(Integer, ForeignKey("categories.id"), nullable=False)  
+    categoria = relationship("Category", back_populates="products")
+    id_almacen = Column(Integer, ForeignKey("almacenes.id"), nullable=False)   
+    almacen = relationship("Almacen", back_populates="products")
     codigo_barras = Column(String(128), nullable=True, index=True)
     activo = Column(Boolean, default=True)

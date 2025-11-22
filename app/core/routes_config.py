@@ -1,7 +1,3 @@
-# Centralized route access control configuration
-# Define which routes are public or which roles are allowed
-
-# Exact path configuration
 ROUTES_ACCESS = {
     "/api/v1/login": {"public": True},
     "/api/v1/logout": {"public": True},
