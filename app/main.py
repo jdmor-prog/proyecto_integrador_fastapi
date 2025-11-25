@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.routers import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.core.auth_middleware import RoleAuthMiddleware
 
 
 app = FastAPI(title=settings.app_name)
@@ -18,11 +17,9 @@ app.add_middleware(
     allow_headers=settings.cors_allow_headers,
 )
 
-# AuthZ Middleware (roles & JWT)
-app.add_middleware(RoleAuthMiddleware)
-
 # Rutas API
 app.include_router(api_router)
+
 
 @app.get("/health")
 def health():
@@ -43,8 +40,6 @@ def read_root():
 @app.get("/scalar", include_in_schema=False)
 async def scalar_html():
     return get_scalar_api_reference(
-        # Your OpenAPI document
         openapi_url=app.openapi_url,
-        # Avoid CORS issues (optional)
         scalar_proxy_url="https://proxy.scalar.com",
     )

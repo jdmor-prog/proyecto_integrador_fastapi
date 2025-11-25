@@ -1,65 +1,68 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.services.user_service import get_user_by_email
-from app.core.security import create_access_token
-import bcrypt
-from pydantic import BaseModel, Field
-from pydantic import ConfigDict
-from app.core.config import settings
+from app.core.security import create_access_token, verify_password, get_password_hash
+from app.models import User, UserRole
+from app.schemas import (
+    UserCreate,
+    UserLogin,
+    TokenResponse,
+    UserPasswordResetRequest,
+    UserPasswordReset,
+    UserOut,
+)
 
-router = APIRouter(tags=["auth"])
-
-
-class LoginRequest(BaseModel):
-    # Accept either email or username via alias "email" for backward compatibility
-    identifier: str = Field(alias="email")
-    password: str
-    model_config = ConfigDict(populate_by_name=True)
+router = APIRouter()
 
 
-@router.post("/login")
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    """Basic login that returns a JWT if credentials are valid."""
-    ident = payload.identifier.strip()
-    # Decide lookup strategy: email if contains '@', else by username (name)
-    if "@" in ident:
-        user = get_user_by_email(db, ident)
-    else:
-        from app.services.user_service import get_user_by_name
-        user = get_user_by_name(db, ident)
-    if not user:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    if not bcrypt.checkpw(payload.password.encode("utf-8"), user.hashed_password.encode("utf-8")):
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-
-    token = create_access_token({"sub": str(user.id), "email": user.email, "role": user.role})
-    # Set JWT in HttpOnly cookie for browser-based docs/clients
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=settings.jwt_expiration_minutes * 60,
-        secure=False,  # set True in production over HTTPS
+@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+def register_user(payload: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="El email ya está registrado")
+    user = User(
+        name=payload.name,
+        email=payload.email,
+        hashed_password=get_password_hash(payload.password),
+        role=UserRole.user,
+        phone=payload.phone,
     )
-    return {"access_token": token, "token_type": "bearer"}
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
-@router.get("/profile")
-def profile(request: Request):
-    """Return current user claims from JWT."""
-    return {"user_id": request.state.user_id, "email": request.state.email, "role": request.state.role}
+@router.post("/login", response_model=TokenResponse)
+def login(payload: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
+    token = create_access_token({"sub": user.id, "email": user.email, "role": user.role.value})
+    return TokenResponse(access_token=token)
 
 
-@router.get("/admin")
-def admin_area():
-    """Simple admin-only endpoint."""
-    return {"message": "Área de administración"}
+@router.post("/forgot-password")
+def forgot_password(payload: UserPasswordResetRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    token = create_access_token({"sub": user.id, "action": "reset"}, expires_minutes=30)
+    user.reset_token = token
+    user.reset_token_expires_at = expires_at
+    db.commit()
+    return {"reset_token": token, "expires_at": expires_at}
 
 
-@router.post("/logout")
-def logout(response: Response):
-    """Clear JWT cookie to logout browser-based sessions."""
-    response.delete_cookie("access_token")
-    return {"message": "Logged out"}
+@router.post("/reset-password")
+def reset_password(payload: UserPasswordReset, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == payload.token).first()
+    if not user or not user.reset_token_expires_at or user.reset_token_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+    user.hashed_password = get_password_hash(payload.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    db.commit()
+    return {"detail": "Contraseña actualizada"}

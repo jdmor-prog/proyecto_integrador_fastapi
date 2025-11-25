@@ -1,56 +1,56 @@
-from pydantic import BaseModel, EmailStr
-from pydantic import ConfigDict
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from app.models.user import UserRole
 
 
 class UserBase(BaseModel):
     name: str
     email: EmailStr
+    phone: Optional[str] = None
+    role: UserRole = UserRole.user
 
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    name: str
+    email: EmailStr
+    password: str = Field(min_length=6)
+    phone: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
     password: str
-    role: str = "user"
-
-
-class UserRead(UserBase):
-    id: int
-    role: str
-    model_config = ConfigDict(from_attributes=True)
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
-    email: EmailStr | None = None
-    password: str | None = None
-    role: str | None = None
+    name: Optional[str] = None
+    phone: Optional[str] = None
 
 
-# Resumen de ítem para embebido en usuario (evita import circular)
-class ItemSummary(BaseModel):
+class UserPasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6)
+
+
+class UserPasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class UserPasswordReset(BaseModel):
+    token: str
+    new_password: str = Field(min_length=6)
+
+
+class UserOut(UserBase):
     id: int
-    title: str
-    description: str | None = None
-    owner_id: int
-    model_config = ConfigDict(from_attributes=True)
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
-class UserReadWithItems(UserRead):
-    items: list[ItemSummary] = []
-
-# Resumen de perfil para embebido en usuario
-class ProfileSummary(BaseModel):
-    id: int
-    bio: str | None = None
-    phone: str | None = None
-    avatar_url: str | None = None
-    user_id: int
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UserReadWithProfile(UserRead):
-    profile: ProfileSummary | None = None
-
-# Usuario con ítems y perfil embebidos
-class UserReadFull(UserRead):
-    items: list[ItemSummary] = []
-    profile: ProfileSummary | None = None
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

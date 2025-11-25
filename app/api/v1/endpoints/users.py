@@ -1,60 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.schemas.user import UserReadFull, UserCreate, UserUpdate
 from app.core.database import get_db
-from app.services import user_service
+from app.core.deps import get_current_user
+from app.core.security import verify_password, get_password_hash
+from app.schemas import UserOut, UserUpdate, UserPasswordChange
+from app.models import User
 
-router = APIRouter(prefix="/users", tags=["users"])
-
-
-@router.get("/", response_model=list[UserReadFull])
-def list_users(skip: int = 0, limit: int = 100, search: str | None = None, db: Session = Depends(get_db)):
-    users = user_service.list_users(db, skip=skip, limit=limit, search=search)
-    return users
+router = APIRouter()
 
 
-@router.post("/", response_model=UserReadFull)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    try:
-        new_user = user_service.create_user(db, user)
-        return new_user
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.get("/me", response_model=UserOut)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
 
 
-@router.get("/{user_id}", response_model=UserReadFull)
-def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = user_service.get_user(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
+@router.patch("/me", response_model=UserOut)
+def update_me(payload: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if payload.name is not None:
+        current_user.name = payload.name
+    if payload.phone is not None:
+        current_user.phone = payload.phone
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
-@router.put("/{user_id}", response_model=UserReadFull)
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
-    try:
-        user = user_service.update_user(db, user_id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
-
-# Actualización puntual con PATCH (parcial)
-@router.patch("/{user_id}", response_model=UserReadFull)
-def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
-    try:
-        user = user_service.update_user(db, user_id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
-
-
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    ok = user_service.delete_user(db, user_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/me/password")
+def change_password(payload: UserPasswordChange, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    return {"detail": "Contraseña actualizada"}
